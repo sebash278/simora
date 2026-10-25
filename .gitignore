@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.simora_storage.json
 
 # debug
 npm-debug.log*
