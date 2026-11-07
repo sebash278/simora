@@ -1,0 +1,56 @@
+// Esquema relacional SIMORA - Prisma ORM sobre MySQL
+// Sistema de Monitoreo de Ruido Ambiental mediante Sensores Móviles
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Space {
+  id                   String         @id @default(cuid())
+  name                 String         @unique @db.VarChar(120)
+  category             String         @default("Aula") @db.VarChar(40)
+  recommendedThreshold Float          @default(70)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  readings             NoiseReading[]
+
+  @@map("spaces")
+}
+
+model Device {
+  id                String         @id @db.VarChar(80)
+  name              String         @db.VarChar(120)
+  calibrationOffset Float          @default(0)
+  lastSeenAt        DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+  readings          NoiseReading[]
+
+  @@map("devices")
+}
+
+model NoiseReading {
+  id             String   @id @default(cuid())
+  deviceId       String   @db.VarChar(80)
+  deviceName     String   @db.VarChar(120)
+  spaceId        String?
+  location       String   @db.VarChar(120)
+  decibels       Float
+  classification String   @db.VarChar(24)
+  isAlert        Boolean  @default(false)
+  timestamp      DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  space  Space? @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp(sort: Desc)])
+  @@index([location, timestamp(sort: Desc)])
+  @@index([classification])
+  @@index([deviceId])
+  @@map("noise_readings")
+}
