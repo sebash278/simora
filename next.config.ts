@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   experimental: {
     agentUpgrade: "security",
   },
+  serverExternalPackages: ["@prisma/client", "prisma"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
@@ -14,6 +14,23 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "microphone=(self)",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+        ],
+      },
+    ];
   },
 };
 

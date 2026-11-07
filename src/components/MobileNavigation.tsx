@@ -48,7 +48,7 @@ export function MobileNavigation({
       aria-label="Navegación principal de SIMORA"
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#1f242e] bg-[#0c0e13]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto flex max-w-md items-center justify-around px-2 py-2">
+      <div className="mx-auto flex max-w-md md:max-w-xl items-center justify-around px-2 py-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
