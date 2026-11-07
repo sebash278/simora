@@ -1,29 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, connection } from 'next/server';
 import { getReadings, addReading, resetReadings } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
+  await connection();
   try {
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
-    const location = searchParams.get('location');
-    const classification = searchParams.get('classification');
+    const location = searchParams.get('location') || undefined;
+    const classification = searchParams.get('classification') || undefined;
+    const deviceId = searchParams.get('deviceId') || undefined;
+    const from = searchParams.get('from') || undefined;
+    const to = searchParams.get('to') || undefined;
+    const alertsOnly = searchParams.get('alertsOnly') === 'true';
+    const thresholdParam = searchParams.get('threshold');
 
-    let readings = getReadings();
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const threshold = thresholdParam ? parseFloat(thresholdParam) : 70;
 
-    if (location && location !== 'all') {
-      readings = readings.filter((r) => r.location.toLowerCase().includes(location.toLowerCase()));
-    }
-
-    if (classification && classification !== 'all') {
-      readings = readings.filter((r) => r.classification.toLowerCase() === classification.toLowerCase());
-    }
-
-    if (limitParam) {
-      const limit = parseInt(limitParam, 10);
-      if (!isNaN(limit) && limit > 0) {
-        readings = readings.slice(0, limit);
-      }
-    }
+    const readings = await getReadings({
+      limit: limit && !Number.isNaN(limit) && limit > 0 ? limit : undefined,
+      location,
+      classification,
+      deviceId,
+      from,
+      to,
+      alertsOnly,
+      threshold: !Number.isNaN(threshold) ? threshold : 70,
+    });
 
     return NextResponse.json({
       success: true,
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    if (body.decibels === undefined || typeof body.decibels !== 'number') {
+    if (body.decibels === undefined || typeof body.decibels !== 'number' || Number.isNaN(body.decibels)) {
       return NextResponse.json(
         { success: false, error: 'El campo "decibels" es obligatorio y debe ser numérico' },
         { status: 400 }
@@ -57,12 +60,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const reading = addReading({
+    const reading = await addReading({
       deviceId: body.deviceId || 'mobile-node-edge',
       deviceName: body.deviceName || 'Smartphone Sensor',
       location: body.location || 'Salón 301 - Lab IoT',
       decibels: body.decibels,
       timestamp: body.timestamp || new Date().toISOString(),
+      calibrationOffset:
+        typeof body.calibrationOffset === 'number' ? body.calibrationOffset : undefined,
+      alertThreshold:
+        typeof body.alertThreshold === 'number' ? body.alertThreshold : 70,
     });
 
     return NextResponse.json(
@@ -84,10 +91,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   try {
-    const seed = resetReadings();
+    const seed = await resetReadings();
     return NextResponse.json({
       success: true,
-      message: 'Historial restablecido con datos de simulación iniciales',
+      message: 'Historial restablecido con datos iniciales',
       count: seed.length,
     });
   } catch (error) {
