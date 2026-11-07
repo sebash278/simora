@@ -8,6 +8,8 @@ interface AcousticMeterProps {
   classification: NoiseClassification;
   isActive: boolean;
   threshold?: number;
+  spectrumBands?: number[];
+  calibrationOffset?: number;
 }
 
 export function AcousticMeter({
@@ -15,10 +17,11 @@ export function AcousticMeter({
   classification,
   isActive,
   threshold = 70,
+  spectrumBands,
+  calibrationOffset = 0,
 }: AcousticMeterProps) {
   const isAlert = decibels >= threshold;
 
-  // Generate 20 reactive equalizer bars for audio spectrum aesthetic
   const barCount = 18;
   const normalizedLevel = Math.max(0, Math.min(1, (decibels - 30) / 60));
 
@@ -30,6 +33,13 @@ export function AcousticMeter({
         accentBar: 'bg-[#2b313e]',
       };
     }
+    if (isAlert || classification === 'Ruidoso') {
+      return {
+        pill: 'text-[#f87171] border-[#3c1d22] bg-[#291115]',
+        label: 'Umbral superado · Ruido alto',
+        accentBar: 'bg-[#f87171]',
+      };
+    }
     if (classification === 'Silencioso') {
       return {
         pill: 'text-[#4ade80] border-[#1f382a] bg-[#0f2319]',
@@ -37,21 +47,16 @@ export function AcousticMeter({
         accentBar: 'bg-[#4ade80]',
       };
     }
-    if (classification === 'Moderado') {
-      return {
-        pill: 'text-[#f59e0b] border-[#382b18] bg-[#241a0b]',
-        label: 'Actividad moderada · Aceptable',
-        accentBar: 'bg-[#f59e0b]',
-      };
-    }
     return {
-      pill: 'text-[#f87171] border-[#3c1d22] bg-[#291115]',
-      label: 'Umbral superado · Ruido alto',
-      accentBar: 'bg-[#f87171]',
+      pill: 'text-[#f59e0b] border-[#382b18] bg-[#241a0b]',
+      label: 'Actividad moderada · Aceptable',
+      accentBar: 'bg-[#f59e0b]',
     };
   };
 
   const status = getStatusColor();
+  const hasLiveSpectrum =
+    isActive && Array.isArray(spectrumBands) && spectrumBands.length === barCount;
 
   return (
     <div
@@ -62,19 +67,27 @@ export function AcousticMeter({
       }`}
     >
       {/* Top subtle classification indicator */}
-      <div
-        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium tracking-tight transition-colors ${status.pill}`}
-      >
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            isActive
-              ? classification === 'Ruidoso'
-                ? 'bg-rose-400 animate-ping'
-                : 'bg-current'
-              : 'bg-[#555d6e]'
-          }`}
-        />
-        <span>{status.label}</span>
+      <div className="flex items-center gap-2">
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium tracking-tight transition-colors ${status.pill}`}
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              isActive
+                ? isAlert
+                  ? 'bg-rose-400 animate-ping'
+                  : 'bg-current'
+                : 'bg-[#555d6e]'
+            }`}
+          />
+          <span>{status.label}</span>
+        </div>
+
+        {calibrationOffset !== 0 && (
+          <span className="rounded-full border border-[#232936] bg-[#141821] px-2 py-1 font-mono text-[10px] text-[#8d96a8] tabular-nums">
+            {calibrationOffset > 0 ? `+${calibrationOffset.toFixed(1)}` : calibrationOffset.toFixed(1)} dB
+          </span>
+        )}
       </div>
 
       {/* Hero Decibel Readout */}
@@ -90,17 +103,24 @@ export function AcousticMeter({
       {/* Acoustic Spectrum Micro-bars */}
       <div className="flex h-10 w-full max-w-[280px] items-end justify-center gap-1.5 px-4">
         {Array.from({ length: barCount }).map((_, i) => {
-          // Calculate bar height based on relative position and decibels
-          const centerDist = Math.abs(i - barCount / 2) / (barCount / 2);
-          const factor = Math.max(0.15, 1 - centerDist * 0.6);
-          const rawHeight = isActive
-            ? Math.min(100, Math.max(12, normalizedLevel * factor * 100 + (Math.sin(i * 1.5) * 8)))
-            : 10;
+          let rawHeight = 10;
+          if (isActive) {
+            if (hasLiveSpectrum) {
+              rawHeight = Math.min(100, Math.max(12, spectrumBands[i] * 100));
+            } else {
+              const centerDist = Math.abs(i - barCount / 2) / (barCount / 2);
+              const factor = Math.max(0.18, 1 - centerDist * 0.58);
+              rawHeight = Math.min(
+                100,
+                Math.max(12, normalizedLevel * factor * 100 + Math.sin(i * 1.5 + decibels) * 9)
+              );
+            }
+          }
 
           return (
             <div
               key={i}
-              className={`w-1 rounded-full transition-all duration-150 ease-out ${
+              className={`w-1 rounded-full transition-all duration-100 ease-out ${
                 isActive ? status.accentBar : 'bg-[#212631]'
               }`}
               style={{
@@ -115,10 +135,10 @@ export function AcousticMeter({
       {/* Scale Reference Footer */}
       <div className="mt-6 flex w-full max-w-[280px] items-center justify-between text-[11px] font-mono text-[#5b6374]">
         <span>30 dB</span>
-        <span className={decibels >= threshold && isActive ? 'text-rose-400 font-bold' : ''}>
-          70 dB (Límite OMS)
+        <span className={isAlert && isActive ? 'text-rose-400 font-semibold' : ''}>
+          {threshold} dB (Umbral)
         </span>
-        <span>100 dB</span>
+        <span>105 dB</span>
       </div>
     </div>
   );

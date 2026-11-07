@@ -45,18 +45,22 @@ export function SensorNodePanel({ onReadingSent }: SensorNodePanelProps) {
   const currentDbRef = useRef<number>(38.0);
 
   // Sync ref with state
-  currentDbRef.current = currentDb;
+  useEffect(() => {
+    currentDbRef.current = currentDb;
+  }, [currentDb]);
 
   // Initialize random persistent-like deviceId on client
   useEffect(() => {
-    const saved = localStorage.getItem('simora_device_id');
-    if (saved) {
-      setDeviceId(saved);
-    } else {
-      const generated = `node-${Math.random().toString(36).substring(2, 7)}`;
-      setDeviceId(generated);
-      localStorage.setItem('simora_device_id', generated);
-    }
+    queueMicrotask(() => {
+      const saved = localStorage.getItem('simora_device_id');
+      if (saved) {
+        setDeviceId(saved);
+      } else {
+        const generated = `node-${Math.random().toString(36).substring(2, 7)}`;
+        setDeviceId(generated);
+        localStorage.setItem('simora_device_id', generated);
+      }
+    });
   }, []);
 
   const transmitReading = useCallback(async (dbValue: number) => {
@@ -137,7 +141,7 @@ export function SensorNodePanel({ onReadingSent }: SensorNodePanelProps) {
     setIsActive(true);
 
     // Realistic sound generator
-    let base = location.includes('Biblioteca') ? 42 : 58;
+    const base = location.includes('Biblioteca') ? 42 : 58;
     simTimerRef.current = setInterval(() => {
       // Natural noise fluctuation with occasional speech or chairs
       const fluctuation = (Math.random() - 0.5) * 8;
